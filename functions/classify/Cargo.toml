@@ -4,10 +4,9 @@ version = "0.1.0"
 authors = ["WasmEdge"]
 edition = "2018"
 
-[lib]
+[[bin]]
 name = "classify"
-path = "src/lib.rs"
-crate-type = ["cdylib"]
+path = "src/main.rs"
 
 [dependencies]
 wasmedge_tensorflow_interface = "^0.2.0"

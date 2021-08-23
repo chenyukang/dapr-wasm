@@ -47,6 +47,9 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	vm.RegisterImport(imgobj)
 	/// Instantiate wasm
 
+	//res, err := vm.RunWasmFile("./lib/classify_bg.wasm", "_start")
+	//ans := string(res[0].([]byte))
+
 	vm.LoadWasmFile("./lib/classify_bg.wasm")
 	vm.Validate()
 	vm.Instantiate()
