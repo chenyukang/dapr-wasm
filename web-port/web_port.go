@@ -8,20 +8,30 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
 	dapr "github.com/dapr/go-sdk/client"
 )
 
-func daprClientSend(image []byte, w http.ResponseWriter) {
-	ctx := context.Background()
+func GetEnvValue(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
 
+func daprClientSend(image []byte, w http.ResponseWriter) {
 	// create the client
-	client, err := dapr.NewClient()
+	client, err := dapr.NewClientWithPort(GetEnvValue("DAPR_GRPC_PORT", "50001"))
+	//client, err := dapr.NewClient()
 	if err != nil {
 		panic(err)
 	}
+	defer client.Close()
+
+	ctx := context.Background()
 
 	content := &dapr.DataContent{
 		ContentType: "text/plain",
@@ -36,6 +46,7 @@ func daprClientSend(image []byte, w http.ResponseWriter) {
 	fmt.Printf("Image classify result: %q\n", resp)
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "%s", string(resp))
+	//client.Close()
 }
 
 func httpClientSend(image []byte, w http.ResponseWriter) {
@@ -63,6 +74,18 @@ func httpClientSend(image []byte, w http.ResponseWriter) {
 	fmt.Fprintf(w, "%s", res)
 }
 
+type mock struct{}
+
+func (m *mock) WriteHeader(statusCode int) {
+}
+
+func (m *mock) Header() http.Header {
+	return nil
+}
+func (m *mock) Write(b []byte) (int, error) {
+	return len(b), nil
+}
+
 func imageHandler(w http.ResponseWriter, r *http.Request) {
 	println("imageHandler ....")
 	body, err := ioutil.ReadAll(r.Body)
@@ -74,6 +97,13 @@ func imageHandler(w http.ResponseWriter, r *http.Request) {
 	api := r.Header.Get("api")
 	if api == "go" {
 		daprClientSend(body, w)
+		for i := 0; i < 10; i++ {
+			go func() {
+				for i := 0; i < 10; i++ {
+					daprClientSend(body, &mock{})
+				}
+			}()
+		}
 	} else {
 		httpClientSend(body, w)
 	}

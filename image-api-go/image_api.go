@@ -1,20 +1,87 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/second-state/WasmEdge-go/wasmedge"
 
 	"github.com/dapr/go-sdk/service/common"
-	daprd "github.com/dapr/go-sdk/service/http"
 )
+
+func testMemory(count int) {
+	file, err := os.Open("./test.jpg")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	fileInfo, _ := file.Stat()
+	var size int64 = fileInfo.Size()
+	image := make([]byte, size)
+
+	// read file into bytes
+	buffer := bufio.NewReader(file)
+	_, err = buffer.Read(image)
+	if err != nil {
+		fmt.Println("read error")
+		return
+	}
+
+	println("image size: ", len(image))
+
+	for i := 0; i < count; i++ {
+		/// Set not to print debug info
+		wasmedge.SetLogErrorLevel()
+
+		/// Create configure
+		var conf = wasmedge.NewConfigure(wasmedge.REFERENCE_TYPES)
+		defer conf.Delete()
+		conf.AddConfig(wasmedge.WASI)
+
+		/// Create VM with configure
+		var vm = wasmedge.NewVMWithConfig(conf)
+		defer vm.Delete()
+
+		/// Init WASI (test)
+		var wasi = vm.GetImportObject(wasmedge.WASI)
+		wasi.InitWasi(
+			os.Args[1:],     /// The args
+			os.Environ(),    /// The envs
+			[]string{".:."}, /// The mapping directories
+			[]string{},      /// The preopens will be empty
+		)
+
+		/// Register WasmEdge-tensorflow and WasmEdge-image
+		var tfobj = wasmedge.NewTensorflowImportObject()
+		var tfliteobj = wasmedge.NewTensorflowLiteImportObject()
+		vm.RegisterImport(tfobj)
+		vm.RegisterImport(tfliteobj)
+		var imgobj = wasmedge.NewImageImportObject()
+		vm.RegisterImport(imgobj)
+
+		/// Instantiate wasm
+
+		vm.LoadWasmFile("./lib/classify_bg.wasm")
+		vm.Validate()
+		vm.Instantiate()
+
+		res, err := vm.ExecuteBindgen("infer", wasmedge.Bindgen_return_array, image)
+		ans := string(res.([]byte))
+		if err != nil {
+			println("error: ", err.Error())
+		}
+
+		fmt.Printf("Image classify result: %q\n", ans)
+	}
+}
 
 func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *common.Content, err error) {
 	image := in.Data
@@ -24,10 +91,12 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 
 	/// Create configure
 	var conf = wasmedge.NewConfigure(wasmedge.REFERENCE_TYPES)
+	defer conf.Delete()
 	conf.AddConfig(wasmedge.WASI)
 
 	/// Create VM with configure
 	var vm = wasmedge.NewVMWithConfig(conf)
+	defer vm.Delete()
 
 	/// Init WASI (test)
 	var wasi = vm.GetImportObject(wasmedge.WASI)
@@ -45,6 +114,7 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	vm.RegisterImport(tfliteobj)
 	var imgobj = wasmedge.NewImageImportObject()
 	vm.RegisterImport(imgobj)
+
 	/// Instantiate wasm
 
 	vm.LoadWasmFile("./lib/classify_bg.wasm")
@@ -56,9 +126,6 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	if err != nil {
 		println("error: ", err.Error())
 	}
-
-	vm.Delete()
-	conf.Delete()
 
 	fmt.Printf("Image classify result: %q\n", ans)
 	out = &common.Content{
@@ -93,13 +160,7 @@ func imageHandler(_ context.Context, in *common.InvocationEvent) (out *common.Co
 }
 
 func main() {
-	s := daprd.NewService(":9003")
-
-	if err := s.AddServiceInvocationHandler("/api/image", imageHandlerWASI); err != nil {
-		log.Fatalf("error adding invocation handler: %v", err)
-	}
-
-	if err := s.Start(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("error listenning: %v", err)
-	}
+	time.Sleep(time.Second * 20)
+	testMemory(20)
+	time.Sleep(time.Second * 20)
 }
