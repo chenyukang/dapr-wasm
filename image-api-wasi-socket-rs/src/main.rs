@@ -2,39 +2,15 @@ use bytecodec::DecodeExt;
 use httpcodec::{
     DecodeOptions, HttpVersion, ReasonPhrase, Request, RequestDecoder, Response, StatusCode,
 };
-use image::{ImageFormat, ImageOutputFormat};
-
+mod lib;
 use std::io::{Read, Write};
 #[cfg(feature = "std")]
 use std::net::{Shutdown, TcpListener, TcpStream};
 #[cfg(not(feature = "std"))]
 use wasmedge_wasi_socket::{Shutdown, TcpListener, TcpStream};
 
-fn grayscale(image: &[u8]) -> Vec<u8> {
-    let detected = image::guess_format(&image);
-    let mut buf = vec![];
-    if detected.is_err() {
-        return buf;
-    }
-    //println!("process grayscale ...");
-    let image_format_detected = detected.unwrap();
-    let img = image::load_from_memory(&image).unwrap();
-    let filtered = img.grayscale();
-    match image_format_detected {
-        ImageFormat::Gif => {
-            filtered.write_to(&mut buf, ImageOutputFormat::Gif).unwrap();
-        }
-        _ => {
-            filtered.write_to(&mut buf, ImageOutputFormat::Png).unwrap();
-        }
-    };
-    return buf;
-}
-
 fn handle_http(req: Request<Vec<u8>>) -> bytecodec::Result<Response<String>> {
-    let image = grayscale(req.body());
-    //let res = format!("{}=> {:?}", req.body().len(), image.len());
-    let res = base64::encode(&image);
+    let res = lib::detect_qr(req.body()).unwrap_or("no".to_string());
     //let res = req.body().len();
     Ok(Response::new(
         HttpVersion::V1_0,

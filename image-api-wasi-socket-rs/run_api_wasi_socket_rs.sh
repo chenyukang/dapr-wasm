@@ -1,4 +1,4 @@
-dapr run --app-id image-api-wasi-socket-rs \
+RUST_BACKTRACE=1 dapr run --app-id image-api-wasi-socket-rs \
          --app-protocol http \
          --app-port 9005 \
          --dapr-http-port 3503 \
