@@ -29,23 +29,23 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	var vm = wasmedge.NewVMWithConfig(conf)
 
 	/// Init WASI
-	var wasi = vm.GetImportObject(wasmedge.WASI)
-	wasi.InitWasi(
-		os.Args[1:],     /// The args
-		os.Environ(),    /// The envs
-		[]string{".:."}, /// The preopens will be empty
-	)
+	   	var wasi = vm.GetImportObject(wasmedge.WASI)
+	   	wasi.InitWasi(
+	   		os.Args[1:],     /// The args
+	   		os.Environ(),    /// The envs
+	   		[]string{".:."}, /// The preopens will be empty
+	   	)
 
-	/// Register WasmEdge-tensorflow and WasmEdge-image
-	var tfobj = wasmedge.NewTensorflowImportObject()
-	var tfliteobj = wasmedge.NewTensorflowLiteImportObject()
-	vm.RegisterImport(tfobj)
-	vm.RegisterImport(tfliteobj)
-	var imgobj = wasmedge.NewImageImportObject()
-	vm.RegisterImport(imgobj)
+	   	/// Register WasmEdge-tensorflow and WasmEdge-image
+	   	var tfobj = wasmedge.NewTensorflowImportObject()
+	   	var tfliteobj = wasmedge.NewTensorflowLiteImportObject()
+	   	vm.RegisterImport(tfobj)
+	   	vm.RegisterImport(tfliteobj)
+	   	var imgobj = wasmedge.NewImageImportObject()
+	   	vm.RegisterImport(imgobj)
 	/// Instantiate wasm
 
-	vm.LoadWasmFile("./lib/grayscale_lib_origin.wasm")
+	vm.LoadWasmFile("./lib/grayscale_lib.wasm")
 	vm.Validate()
 	/// vm.Instantiate()
 	bg := bindgen.Instantiate(vm)
@@ -61,9 +61,7 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	}
 
 	println("image:", image)
-
-	res, err := bg.Execute("grayscale", image)
-	// ans := string(res[0].([]byte))
+	res, err := bg.Execute("grayscale", in.Data)
 	ans := res[0].(string)
 	if err != nil {
 		println("error: ", err.Error())

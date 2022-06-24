@@ -6,6 +6,10 @@ dapr stop image-api-rs
 dapr stop go-web-port 
 dapr stop image-api-wasi-socket-rs
 
+pushd ./functions/grayscale/
+./build.sh
+popd
+
 pushd image-api-rs
 nohup ./run_api_rs.sh > nohup.log &
 popd
