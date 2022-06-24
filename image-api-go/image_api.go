@@ -18,8 +18,6 @@ import (
 )
 
 func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *common.Content, err error) {
-	image := in.Data
-
 	/// Set not to print debug info
 	wasmedge.SetLogErrorLevel()
 
@@ -47,10 +45,22 @@ func imageHandlerWASI(_ context.Context, in *common.InvocationEvent) (out *commo
 	vm.RegisterImport(imgobj)
 	/// Instantiate wasm
 
-	vm.LoadWasmFile("./lib/grayscale_lib.wasm")
+	vm.LoadWasmFile("./lib/grayscale_lib_origin.wasm")
 	vm.Validate()
 	/// vm.Instantiate()
 	bg := bindgen.Instantiate(vm)
+
+	// convert image to image_str
+	image := ""
+	for i := 0; i < len(in.Data); i++ {
+		image += fmt.Sprintf("%d,", in.Data[i])
+	}
+	sz := len(image)
+	if sz > 0 && image[sz-1] == ',' {
+		image = image[:sz-1]
+	}
+
+	println("image:", image)
 
 	res, err := bg.Execute("grayscale", image)
 	// ans := string(res[0].([]byte))
