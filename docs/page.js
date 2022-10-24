@@ -105,7 +105,9 @@ function runWasm(e) {
     reader.onload = function(e) {
         setLoading(true);
         var req = new XMLHttpRequest();
-        req.open("POST", 'http://23.100.38.125:9000/api/' + getApi(), true);
+        var api = getApi();
+        var uri = `http://23.100.38.125:3504/v1.0/invoke/image-api-${api}/method/${api}`;
+        req.open("POST", uri, true);
         req.setRequestHeader('api', getApi());
         req.onload = function() {
             setLoading(false);
